@@ -1,0 +1,348 @@
+#include <LBLE.h>
+#include <LBLEPeriphral.h>
+#include <LWiFi.h>
+
+#define SSID "CSIE-WLAN-Sparq"
+#define PASSWD "wificsie"
+
+#define TCP_IP "192.168.209.33"
+#define TCP_PORT 5000
+# define rightpin1 10
+# define rightpin2 11
+# define leftpin1 17
+# define leftpin2 13
+# define x 14
+# define y 15
+const int Trig_Pins_1 = 2;// trig 腳位
+const int Echo_Pins_1 = 3;// echo 腳位
+const int Trig_Pins_2 = 4;
+const int Echo_Pins_2 = 5;
+const int Trig_Pins_3 = 6;
+const int Echo_Pins_3 = 7;  
+float resultF = 0;
+float resultL = 0;
+float resultR = 0;
+float lastF = 0;
+float lastL = 0;
+float lastR = 0;
+int xf,yf;
+
+const int r_Pin = 12;//Red led
+const int  g_Pin = 9;//Green led
+const int b_Pin = 8;//Blue led
+WiFiClient wifiClient;
+static char buf[32];
+static int messageLen;
+void setup()
+{ 
+  int status = WL_IDLE_STATUS;
+    while (status != WL_CONNECTED) {
+        status = WiFi.begin(SSID, PASSWD);
+    }
+   // Conenct to AP successfully
+    wifiClient.connect(TCP_IP, TCP_PORT);
+    if(!wifiClient.connected()){
+      Serial.println(F("connect fail"));
+    }
+    delay(1000);
+    wifiClient.write("join yihsin B");  //join <ID> <team>
+ 
+    
+    Serial.begin(9600);
+    //等待開啟 Serial。
+    //while (!Serial) ;
+    pinMode(r_Pin, OUTPUT);
+    pinMode(g_Pin, OUTPUT);
+    pinMode(b_Pin, OUTPUT);
+    pinMode(rightpin1,OUTPUT);
+    pinMode(rightpin2,OUTPUT);
+    pinMode(leftpin1,OUTPUT);
+    pinMode(leftpin2,OUTPUT);
+    pinMode(x,OUTPUT);
+    pinMode(y,OUTPUT);
+}
+void loop()
+{ 
+  //藍光
+  
+  resultF= get_distance( Trig_Pins_1, Echo_Pins_1);
+  resultL= get_distance( Trig_Pins_2, Echo_Pins_2);
+  resultR= get_distance( Trig_Pins_3, Echo_Pins_3);
+  /*Serial.print(resultF);
+  Serial.println("cm");
+  Serial.print(resultL);
+  Serial.println("cm");
+  Serial.print(resultR);
+  Serial.println("cm");*/
+  int i = 0;
+  int a = 0;
+  while (wifiClient.available()) {
+      buf[i++] = wifiClient.read();
+      delayMicroseconds(10);
+  }
+  if (i != 0) {
+      buf[i] = '\0';
+      Serial.println(buf);
+      String temp = String(buf);
+      if(temp == "send-from GlimGlam timcsy-yihsin-rrrrrr"){start_move();}
+      /* if(temp.startsWith("send-from")){
+        Serial.println("success");
+        delay(500); 
+      }*/
+      if(temp == "send-from controller left"){turn_left(50); delay(500);}
+      if(temp == "send-from controller right"){turn_right(50);delay(500);}
+      if(temp == "send-from controller front"){forward(50);delay(500);}
+      if(temp == "send-from controller stop"){stopRun(50);delay(500);}
+  }
+  
+  else{
+    Serial.println("FAIL");
+  }
+ // wifiClient.write("position");
+ 
+  
+  
+  delay(500);
+  get_buf(); 
+ //start_move();
+ 
+  
+}
+void start_move(){
+  analogWrite(r_Pin,0);
+  analogWrite(g_Pin,0);
+  analogWrite(b_Pin,255);
+  
+ /* Serial.println("迴轉");
+      back(200);stopRun(500);
+      if(resultR > resultL){
+          turn_right(250);stopRun(500);
+          turn_right(250);stopRun(500);
+          stopRun(1000);
+          ultrasonic();
+      }
+      else{
+          turn_left(250);delay(500);
+          turn_left(250);delay(500);
+          stopRun(1000);
+      }*/
+    
+  forward(1500);stopRun(1000);
+  ultrasonic(); 
+  
+ if(resultL<20 && resultR <15 && resultF>30){
+    Serial.println("0,0");
+    forward(2500);if(resultR<30){forward(2000);}
+    stopRun(1000); turn_right(400); stopRun(1000); forward(1100); stopRun(1000);turn_right(450);stopRun(1000);
+ 
+    forward(2000);stopRun(1000);  turn_left(600); stopRun(1000); forward(1200); stopRun(1000);revise_left(150);stopRun(1000); forward(2500); stopRun(1000);
+    revise_left(300);stopRun(1000);forward(1000);stopRun(500);revise_left(350);stopRun(500);forward(5000);stopRun(1000);
+    turn_right(450); stopRun(1000);ultrasonic(); rotation_right();
+    forward(1600);   
+    wifiClient.write("send-to timcsy GO");
+ }
+ if(resultR<20 && resultL>20 && resultF>15){
+    Serial.println("7,0");
+    forward(1000);stopRun(1000);if(resultL<15){back(500);stopRun(1000);}
+    turn_left(500); stopRun(1000); forward(2000);stopRun(1000); turn_right(550); stopRun(1000);
+    forward(3500);stopRun(1000); turn_left(500);stopRun(1000);forward(300);stopRun(1000);turn_right(500);
+    stopRun(1000); forward(200); turn_right(500);stopRun(1000);
+    forward(3000);stopRun(1000);turn_left(450);stopRun(1000);forward(1000);stopRun(1000);
+    wifiClient.write("send-to timcsy GO");ultrasonic(); rotation_right();
+ }
+ if(resultR<17 && resultL>20 && resultF<15){
+    Serial.println("0,7");
+    forward(1500);stopRun(1000);
+    turn_left(350); stopRun(1000);forward(1400);stopRun(1000); turn_right(450);stopRun(1000);
+    forward(3000);stopRun(1000); turn_right(450);stopRun(1000);forward(1000);stopRun(500);turn_right(450);stopRun(1000);
+    forward(2000);stopRun(1000); turn_left(400);stopRun(1000);forward(1000);stopRun(500);turn_left(400);stopRun(1000);
+    forward(3000);stopRun(1000);ultrasonic(); rotation_right();
+    wifiClient.write("send-to timcsy GO");
+ }
+ if(resultL<15 && resultR>20){
+  Serial.println("7,7");
+    stopRun(1000);
+    turn_right(400);stopRun(1000); forward(1000); stopRun(1000);forward(3000);stopRun(1000);turn_left(400);stopRun(1000);
+    forward(800); stopRun(1000);turn_right(500); stopRun(1000);forward(2500);stopRun(1000);revise_left(150);stopRun(500);forward(2500);stopRun(1000); turn_right(450);stopRun(1000);
+    forward(2200);stopRun(1000); ultrasonic(); rotation_right();
+    wifiClient.write("send-to timcsy GO");
+ }
+}
+void ultrasonic(){
+   //remember last distance
+  lastF = resultF;
+  lastL = resultL;
+  resultF= get_distance( Trig_Pins_1, Echo_Pins_1);
+  resultL= get_distance( Trig_Pins_2, Echo_Pins_2);
+  resultR= get_distance( Trig_Pins_3, Echo_Pins_3);
+ /* Serial.print(resultF);
+  Serial.println("cm");
+  Serial.print(resultL);
+  Serial.println("cm");
+  Serial.print(resultR);
+  Serial.println("cm");*/
+  if(lastF > 250){
+      lastF = 2;
+  }
+  if(resultF > 250){
+      resultF = 2;
+  }
+  if(resultR > 250){
+      resultR = 2;
+  }  
+  if(resultL > 250){
+      resultL = 2;
+  }
+}
+void get_buf(){
+  
+   char *pch;
+      pch = strtok(buf," ");
+      int j =0;
+      int pos[4];
+      for(int i=0 ; i<5 ;i++){
+          pos[i] = 0;
+      }
+      while (pch != NULL){
+          int tmp = atoi(pch);
+          pos[j]=tmp;
+          j++;
+          pch = strtok(NULL,"[,]() ");
+      }
+      for(int i=1;i<sizeof(buf);i++){
+          buf[i]={0};
+      } 
+      xf = pos[1];yf = pos[2];
+            
+      Serial.println(xf);
+      Serial.println(yf);
+      
+  }
+void forward(int delaytime){
+    digitalWrite(rightpin1,HIGH);
+    digitalWrite(rightpin2,LOW);
+    digitalWrite(leftpin1,LOW);
+    digitalWrite(leftpin2,HIGH);
+    analogWrite(x,130);
+    analogWrite(y,130);
+    delay(delaytime);
+    ultrasonic();
+    revise();
+}
+void stopRun(int delaytime){
+    digitalWrite(rightpin1,LOW);
+      digitalWrite(rightpin2,LOW);
+      digitalWrite(leftpin1,LOW);
+      digitalWrite(leftpin2,LOW);
+      delay(delaytime);
+      if(resultL>10 && resultL <15 ){
+        revise_left(50);
+    }
+    else if(resultR > 10 && resultR <15){
+      revise_right(50);
+    }
+    digitalWrite(rightpin1,LOW);
+      digitalWrite(rightpin2,LOW);
+      digitalWrite(leftpin1,LOW);
+      digitalWrite(leftpin2,LOW);
+      delay(delaytime);
+}
+void back(int delaytime){
+    //if(resultL == resultR){
+      digitalWrite(rightpin1,LOW);
+      digitalWrite(rightpin2,HIGH);
+      digitalWrite(leftpin1,HIGH);
+      digitalWrite(leftpin2,LOW);
+      analogWrite(x,200);
+      analogWrite(y,200);
+      delay(delaytime);
+}
+
+void turn_right(int delaytime){
+    digitalWrite(rightpin1,HIGH);
+    digitalWrite(rightpin2,LOW);
+    digitalWrite(leftpin1,HIGH);
+    digitalWrite(leftpin2,LOW);
+    analogWrite(x,150);
+    analogWrite(y,150);
+    delay(delaytime);
+}
+void revise(){
+    if(resultR < 7){
+    //Serial.println("左邊校正");
+    back(100);
+    revise_left(50); 
+    forward(200);
+}
+ if(resultL < 7){
+    //Serial.println("右邊校正");
+    back(100);
+    revise_right(50); 
+    forward(200);
+}
+}
+void revise_right(int delaytime){
+  
+    digitalWrite(rightpin1,HIGH);
+    digitalWrite(rightpin2,LOW);
+    digitalWrite(leftpin1,HIGH);
+    digitalWrite(leftpin2,LOW);
+    analogWrite(x,130);
+    analogWrite(y,130);
+    delay(delaytime);
+}
+void turn_left(int delaytime){
+    digitalWrite(rightpin1,LOW);
+    digitalWrite(rightpin2,HIGH);
+    digitalWrite(leftpin1,LOW);
+    digitalWrite(leftpin2,HIGH);
+    analogWrite(x,150);
+    analogWrite(y,150);
+    delay(delaytime);
+   
+}
+void revise_left(int delaytime){
+    digitalWrite(rightpin1,LOW);
+    digitalWrite(rightpin2,HIGH);
+    digitalWrite(leftpin1,LOW);
+    digitalWrite(leftpin2,HIGH);
+    analogWrite(x,130);
+    analogWrite(y,130);
+    delay(delaytime);
+}
+void rotation_right(){
+  ultrasonic(); 
+   if(resultR<20&&resultL<20&&resultF<20){
+      back(200);stopRun(500);
+      if(resultR > resultL){
+          turn_right(400);stopRun(500);
+          turn_right(400);stopRun(500);
+          stopRun(1000);
+          ultrasonic();
+      }
+      else{
+          turn_left(400);stopRun(500);
+          turn_left(400);stopRun(500);
+          stopRun(1000);
+      }
+   }
+}
+void rotation_left(int delaytime){
+    digitalWrite(rightpin1,LOW);
+    digitalWrite(rightpin2,HIGH);
+    digitalWrite(leftpin1,LOW);
+    digitalWrite(leftpin2,HIGH);
+    analogWrite(x,130);
+    analogWrite(y,130);
+    delay(delaytime);
+}
+float get_distance(int trig, int echo){//計算距離
+    float duration;
+    pinMode(trig, OUTPUT);
+    pinMode(echo, INPUT);
+    digitalWrite(trig, HIGH);
+    delayMicroseconds(10);//給予trig 10us TTL pulse,讓模組發射聲波
+    digitalWrite(trig, LOW);
+    duration = pulseIn(echo, HIGH, 5000000);//紀錄echo電位從high到low的時間，就是超音波來回的時間，若5秒內沒收到超音波則回傳0
+    return duration / 29 / 2;// 聲速340m/s ，換算後約每29微秒走一公分，超音波來回所以再除2
+}
